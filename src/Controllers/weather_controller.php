@@ -7,6 +7,8 @@ require_once __DIR__ . '/../Models/dao_weather.php';
 
 class WeatherController
 {
+    private const DEFAULT_VIEW_TYPE = 'current';
+
     private const VIEW_MAP = [
         'current' => 'prevision_actual',
         '24h' => 'prevision_por_horas',
@@ -16,40 +18,29 @@ class WeatherController
     public function handleRequest(array $request): void
     {
         $city = trim((string) ($request['city'] ?? ''));
-        $type = trim((string) ($request['view'] ?? $request['type'] ?? 'current'));
+        $type = trim((string) ($request['view'] ?? $request['type'] ?? self::DEFAULT_VIEW_TYPE));
 
-                if ($city === '') {
-            View::show('weather_search', [
-                'title' => 'Buscar ciudad',
-                'error' => 'Debes indicar una ciudad para consultar el tiempo.',
-                'selected_type' => $type,
-                'city' => '',
-            ]);
+        if ($request === []) {
+            $this->showSearchView(null, $type);
             return;
         }
 
-                if (!isset(self::VIEW_MAP[$type])) {
-            View::show('weather_search', [
-                'title' => 'Buscar ciudad',
-                'error' => 'El tipo de consulta no es válido.',
-                'selected_type' => 'current',
-                'city' => $city,
-            ]);
+        if ($city === '') {
+            $this->showSearchView('Debes indicar una ciudad para consultar el tiempo.', $type);
+            return;
+        }
+        if (!isset(self::VIEW_MAP[$type])) {
+            $this->showSearchView('El tipo de consulta no es válido.', self::DEFAULT_VIEW_TYPE, $city);
             return;
         }
 
-                $daoWeather = new DAOWeather();
+        $daoWeather = new DAOWeather();
 
         try {
             $payload = $this->buildViewData($daoWeather, $city, $type);
             View::show(self::VIEW_MAP[$type], $payload);
         } catch (Throwable $exception) {
-            View::show('weather_search', [
-                'title' => 'Buscar ciudad',
-                'error' => $exception->getMessage(),
-                'selected_type' => $type,
-                'city' => $city,
-            ]);
+            $this->showSearchView($exception->getMessage(), $type, $city);
         }
     }
 
