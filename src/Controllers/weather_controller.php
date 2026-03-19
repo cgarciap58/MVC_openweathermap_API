@@ -37,9 +37,9 @@ class WeatherController
             return;
         }
 
-        $daoWeather = new DAOWeather();
 
         try {
+            $daoWeather = new DAOWeather();
             $payload = $this->buildViewData($daoWeather, $city, $type);
             View::show(self::VIEW_MAP[$type], $payload);
         } catch (Throwable $exception) {

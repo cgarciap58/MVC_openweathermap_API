@@ -17,7 +17,7 @@ class Database {
             return $dbh;
 
         } catch (PDOException $e) {
-            echo "Error: " . $e->getMessage();
+            throw new RunTimeException("Error al conectar con la base de datos: ", 0, $e);
         }
     }
     
