@@ -19,8 +19,10 @@ class WeatherController
     {
         $city = trim((string) ($request['city'] ?? ''));
         $type = trim((string) ($request['view'] ?? $request['type'] ?? self::DEFAULT_VIEW_TYPE));
+        $hasSubmittedForm = array_key_exists('city', $request) || array_key_exists('view', $request) || array_key_exists('type', $request);
 
-        if ($request === []) {
+        // Validamos si la petición es inicial o si el formulario ya se ha intentado enviar.
+        if (!$hasSubmittedForm) {
             $this->showSearchView(null, $type);
             return;
         }
@@ -29,6 +31,7 @@ class WeatherController
             $this->showSearchView('Debes indicar una ciudad para consultar el tiempo.', $type);
             return;
         }
+
         if (!isset(self::VIEW_MAP[$type])) {
             $this->showSearchView('El tipo de consulta no es válido.', self::DEFAULT_VIEW_TYPE, $city);
             return;
@@ -44,8 +47,19 @@ class WeatherController
         }
     }
 
-        private function buildViewData(DAOWeather $daoWeather, string $city, string $type): array
+    private function showSearchView(?string $error = null, string $selectedType = self::DEFAULT_VIEW_TYPE, string $city = ''): void
     {
+        View::show('weather_search', [
+            'title' => 'Buscar ciudad',
+            'error' => $error,
+            'selected_type' => isset(self::VIEW_MAP[$selectedType]) ? $selectedType : self::DEFAULT_VIEW_TYPE,
+            'city' => $city,
+        ]);
+    }
+
+    private function buildViewData(DAOWeather $daoWeather, string $city, string $type): array
+    {
+        // Seleccionamos los datos y la vista del tipo de consulta solicitado
         $location = $daoWeather->getLocationByCity($city);
 
         if ($location === null) {
@@ -96,6 +110,7 @@ class WeatherController
 
     private function resolveLastUpdated(array $series): ?string
     {
+        // Se resuelve la fecha más representativa priorizando datos recuperados
         foreach ($series as $entry) {
             if (!empty($entry['fetched_at'])) {
                 return (string) $entry['fetched_at'];
