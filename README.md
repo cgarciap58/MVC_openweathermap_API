@@ -14,5 +14,12 @@ El código está organizado en las siguientes carpetas y ficheros:
 - `src/Controllers/`: Controladores de la aplicación.
 - `src/Models/`: Modelos de la aplicación.
 - `src/Views/`: Vistas de la aplicación.
+- `src/Views/header.php`: Cabecera de la aplicación web, presente en todas las vistas.
+- `src/Views/footer.php`: Pie de página de la aplicación web, presente en todas las vistas.
 - `.env`: Variables de entorno.
 - `README.md`: Documentación del proyecto.
+
+## Despliegue
+
+El despliegue se realizará mediante clonado de este mismo repositorio en una instancia EC2 de AWS.
+Dicha instancia se asociará a un dominio público mediante el servicio gratuito de noip. 
