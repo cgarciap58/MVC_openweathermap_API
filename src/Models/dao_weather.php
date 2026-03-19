@@ -1,6 +1,6 @@
 <?php
 
-include '../db/db.php';
+include_once __DIR__ . '/../db/db.php';
 
 class DAOWeather {
     private const CURRENT_TTL_MINUTES = 15;
