@@ -99,7 +99,47 @@ class DAOWeather {
         }
         
 
-        return mb_strtolower($singleSpacedCity, 'UTF-8');
+        return $this->lowercaseUtf8($singleSpacedCity);
+    }
+
+    private function lowercaseUtf8(string $value): string {
+        if (function_exists('mb_strtolower')) {
+            return mb_strtolower($value, 'UTF-8');
+        }
+
+        $normalizedValue = strtr($value, [
+            'Á' => 'á',
+            'À' => 'à',
+            'Â' => 'â',
+            'Ä' => 'ä',
+            'Ã' => 'ã',
+            'Å' => 'å',
+            'Æ' => 'æ',
+            'Ç' => 'ç',
+            'É' => 'é',
+            'È' => 'è',
+            'Ê' => 'ê',
+            'Ë' => 'ë',
+            'Í' => 'í',
+            'Ì' => 'ì',
+            'Î' => 'î',
+            'Ï' => 'ï',
+            'Ñ' => 'ñ',
+            'Ó' => 'ó',
+            'Ò' => 'ò',
+            'Ô' => 'ô',
+            'Ö' => 'ö',
+            'Õ' => 'õ',
+            'Ø' => 'ø',
+            'Ú' => 'ú',
+            'Ù' => 'ù',
+            'Û' => 'û',
+            'Ü' => 'ü',
+            'Ý' => 'ý',
+            'Ÿ' => 'ÿ',
+        ]);
+
+        return strtolower($normalizedValue);
     }
 
     private function findLocationByNormalizedQuery(string $normalizedCity): ?array {
