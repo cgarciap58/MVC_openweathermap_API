@@ -167,6 +167,7 @@ class OpenWeatherApiClient
 
         return [
             'temperature' => (float) $response['main']['temp'],
+            'feels_like' => isset($response['main']['feels_like']) ? (float) $response['main']['feels_like'] : (float) $response['main']['temp'],
             'description' => (string) ($response['weather'][0]['description'] ?? ''),
             'icon' => (string) ($response['weather'][0]['icon'] ?? ''),
             'humidity' => (int) $response['main']['humidity'],
@@ -195,7 +196,8 @@ class OpenWeatherApiClient
             'temperature' => (float) $entry['main']['temp'],
             'description' => (string) ($entry['weather'][0]['description'] ?? ''),
             'icon' => (string) ($entry['weather'][0]['icon'] ?? ''),
-        ];
+            'humidity' => isset($entry['main']['humidity']) ? (int) $entry['main']['humidity'] : 0,
+            'wind_speed' => isset($entry['wind']['speed']) ? (float) $entry['wind']['speed'] : 0.0,        ];
     }
 
     private function extractNext24Hours(array $forecastItems): array

@@ -1,23 +1,25 @@
 <?php
 
 include_once __DIR__ . '/../db/db.php';
+require_once __DIR__ . '/api_calls.php';
 
 class DAOWeather {
     private const CURRENT_TTL_MINUTES = 15;
     private const HOURLY_TTL_MINUTES = 60;
     private const WEEKLY_TTL_MINUTES = 360;
-    private const GEO_API_URL = 'http://api.openweathermap.org/geo/1.0/direct';
-    private const CURRENT_API_URL = 'https://api.openweathermap.org/data/2.5/weather';
-    private const FORECAST_API_URL = 'https://api.openweathermap.org/data/2.5/forecast';
-    private const DEFAULT_COUNTRY_CODE = null;
-    private const DEFAULT_STATE = null;
 
     private $con;
-    private $apiKey;
+    private OpenWeatherApiClient $apiClient;
 
     public function __construct() {
         $this->con = Database::start_con();
-        $this->apiKey = getenv('OPENWEATHER_API_KEY') ?: 'ac5d71bf15cc25c652db23b8bf627fd7';
+        $apiKey = getenv('OPENWEATHER_API_KEY');
+
+        if (!is_string($apiKey) || trim($apiKey) === '') {
+            throw new RuntimeException('Falta configurar OPENWEATHER_API_KEY. Define la variable de entorno con una API key válida de OpenWeather.');
+        }
+
+        $this->apiClient = new OpenWeatherApiClient($apiKey);
     }
 
     // Recibe una ciudad y devuelve su ubicación
@@ -48,7 +50,7 @@ class DAOWeather {
             return $cachedWeather;
         }
 
-        $currentWeather = $this->fetchCurrentWeatherFromApi($location['lat'], $location['lon']);
+        $currentWeather = $this->fetchCurrentWeatherFromApi((float) $location['lat'], (float) $location['lon']);
         return $this->saveCurrentWeather((int) $location['id'], $currentWeather);
     }
 
@@ -60,7 +62,7 @@ class DAOWeather {
             return $cachedForecast;
         }
 
-        $forecastData = $this->fetchForecastFromApi($location['lat'], $location['lon']);
+        $forecastData = $this->fetchForecastFromApi((float) $location['lat'], (float) $location['lon']);
         return $this->saveHourlyForecast((int) $location['id'], $forecastData['hourly']);
     }
 
@@ -73,6 +75,7 @@ class DAOWeather {
         }
 
         $forecastData = $this->fetchForecastFromApi($location['lat'], $location['lon']);
+        $forecastData = $this->fetchForecastFromApi((float) $location['lat'], (float) $location['lon']);
         return $this->saveWeeklyForecast((int) $location['id'], $forecastData['daily']);
     }
 
@@ -87,6 +90,7 @@ class DAOWeather {
     }
 
     private function normalizeCity(string $city): string {
+        // Normaliza la búsqueda eliminando espacios sobrantes y unificando mayúsculas/minúsculas para reutilizar la misma clave de caché.
         $trimmedCity = trim($city);
         $singleSpacedCity = preg_replace('/\s+/u', ' ', $trimmedCity);
 
@@ -112,6 +116,7 @@ class DAOWeather {
     }
 
     private function findCurrentWeather(int $locationId): ?array {
+        // Usa la caché en base de datos mientras el registro actual siga dentro del TTL para evitar llamadas repetidas a OpenWeather.
         $sql = 'SELECT location_id, temperature, feels_like, humidity, pressure, description, icon, wind_speed, observed_at, fetched_at
                 FROM weather_current
                 WHERE location_id = :location_id
@@ -128,6 +133,7 @@ class DAOWeather {
     }
 
     private function findHourlyForecast(int $locationId): array {
+        // Reutiliza el forecast horario persistido si aún no caducó para reducir latencia y consumo de API.
         $sql = 'SELECT location_id, forecast_at, temperature, description, icon, humidity, wind_speed, fetched_at
                 FROM weather_hourly
                 WHERE location_id = :location_id
@@ -143,6 +149,7 @@ class DAOWeather {
     }
 
     private function findWeeklyForecast(int $locationId): array {
+        // Devuelve la previsión diaria almacenada en BD si sigue vigente según el TTL configurado.
         $sql = 'SELECT location_id, forecast_date, temp_min, temp_max, description, icon, fetched_at
                 FROM weather_daily
                 WHERE location_id = :location_id
@@ -268,123 +275,39 @@ class DAOWeather {
     }
 
     private function fetchLocationFromApi(string $city): ?array {
-        $response = $this->requestJson(self::GEO_API_URL . '?' . http_build_query([
-            'q' => trim($city),
-            'limit' => 1,
-            'appid' => $this->apiKey,
-        ]));
+        // Refresca la ubicación desde OpenWeather solo cuando no existe una coincidencia normalizada en la base local.
+        try {
+            $location = $this->apiClient->geocodeCity($city, '');
+        } catch (RuntimeException $exception) {
+            if (str_contains($exception->getMessage(), 'No se encontró ninguna ubicación')) {
+                return null;
+            }
 
-        if (empty($response[0])) {
-            return null;
+            throw $exception;
         }
 
         return [
-            'city' => $response[0]['name'] ?? trim($city),
-            'country_code' => $response[0]['country'] ?? self::DEFAULT_COUNTRY_CODE,
-            'state' => $response[0]['state'] ?? self::DEFAULT_STATE,
-            'lat' => $response[0]['lat'],
-            'lon' => $response[0]['lon'],
+            'city' => $location['city'],
+            'country_code' => $location['country'],
+            'state' => $location['state'],
+            'lat' => $location['lat'],
+            'lon' => $location['lon'],
         ];
     }
 
-    private function fetchCurrentWeatherFromApi($lat, $lon): array {
-        $response = $this->requestJson(self::CURRENT_API_URL . '?' . http_build_query([
-            'lat' => $lat,
-            'lon' => $lon,
-            'appid' => $this->apiKey,
-            'units' => 'metric',
-        ]));
+    private function fetchCurrentWeatherFromApi(float $lat, float $lon): array {
+        // Fuerza un refresco desde OpenWeather cuando la observación actual no está disponible o expiró en la caché local.
+        return $this->apiClient->fetchCurrentWeather($lat, $lon);
+    }
 
+    private function fetchForecastFromApi(float $lat, float $lon): array {
+        // Recupera un forecast nuevo desde OpenWeather al vencer la caché horaria/semanal almacenada en BD.
+        $forecast = $this->apiClient->fetchForecast($lat, $lon);
+        
         return [
-            'temperature' => $response['main']['temp'],
-            'feels_like' => $response['main']['feels_like'],
-            'humidity' => $response['main']['humidity'],
-            'pressure' => $response['main']['pressure'],
-            'description' => $response['weather'][0]['description'],
-            'icon' => $response['weather'][0]['icon'],
-            'wind_speed' => $response['wind']['speed'] ?? 0,
-            'observed_at' => gmdate('Y-m-d H:i:s', $response['dt']),
+            'hourly' => $forecast['hourly'],
+            'daily' => $forecast['daily'],
         ];
-    }
-
-    private function fetchForecastFromApi($lat, $lon): array {
-        $response = $this->requestJson(self::FORECAST_API_URL . '?' . http_build_query([
-            'lat' => $lat,
-            'lon' => $lon,
-            'appid' => $this->apiKey,
-            'units' => 'metric',
-        ]));
-
-        $hourly = [];
-        $dailyGrouped = [];
-
-        foreach ($response['list'] as $index => $entry) {
-            if ($index < 8) {
-                $hourly[] = [
-                    'forecast_at' => gmdate('Y-m-d H:i:s', $entry['dt']),
-                    'temperature' => $entry['main']['temp'],
-                    'description' => $entry['weather'][0]['description'],
-                    'icon' => $entry['weather'][0]['icon'],
-                    'humidity' => $entry['main']['humidity'],
-                    'wind_speed' => $entry['wind']['speed'] ?? 0,
-                ];
-            }
-
-            $forecastDate = gmdate('Y-m-d', $entry['dt']);
-            if (!isset($dailyGrouped[$forecastDate])) {
-                $dailyGrouped[$forecastDate] = [
-                    'forecast_date' => $forecastDate,
-                    'temp_min' => $entry['main']['temp_min'],
-                    'temp_max' => $entry['main']['temp_max'],
-                    'description' => $entry['weather'][0]['description'],
-                    'icon' => $entry['weather'][0]['icon'],
-                    'best_timestamp' => $entry['dt'],
-                    'best_diff' => abs(($entry['dt'] % 86400) - 43200),
-                ];
-                continue;
-            }
-
-            $dailyGrouped[$forecastDate]['temp_min'] = min($dailyGrouped[$forecastDate]['temp_min'], $entry['main']['temp_min']);
-            $dailyGrouped[$forecastDate]['temp_max'] = max($dailyGrouped[$forecastDate]['temp_max'], $entry['main']['temp_max']);
-
-            $diffFromMidday = abs(($entry['dt'] % 86400) - 43200);
-            if ($diffFromMidday < $dailyGrouped[$forecastDate]['best_diff']) {
-                $dailyGrouped[$forecastDate]['description'] = $entry['weather'][0]['description'];
-                $dailyGrouped[$forecastDate]['icon'] = $entry['weather'][0]['icon'];
-                $dailyGrouped[$forecastDate]['best_timestamp'] = $entry['dt'];
-                $dailyGrouped[$forecastDate]['best_diff'] = $diffFromMidday;
-            }
-        }
-
-        $daily = [];
-        foreach (array_slice(array_values($dailyGrouped), 0, 7) as $day) {
-            $daily[] = [
-                'forecast_date' => $day['forecast_date'],
-                'temp_min' => $day['temp_min'],
-                'temp_max' => $day['temp_max'],
-                'description' => $day['description'],
-                'icon' => $day['icon'],
-            ];
-        }
-
-        return [
-            'hourly' => $hourly,
-            'daily' => $daily,
-        ];
-    }
-
-    private function requestJson(string $url): array {
-        $response = @file_get_contents($url);
-        if ($response === false) {
-            throw new RuntimeException('No se pudo obtener respuesta de la API meteorológica.');
-        }
-
-        $decodedResponse = json_decode($response, true);
-        if (!is_array($decodedResponse)) {
-            throw new RuntimeException('La API meteorológica devolvió una respuesta no válida.');
-        }
-
-        return $decodedResponse;
     }
 }
 
