@@ -1,112 +1,270 @@
 <?php
 
+declare(strict_types=1);
 
-$city = "Mérida";
-$state = "";
-$country = "ES";
-$limit = 1;
-$api_key = "ac5d71bf15cc25c652db23b8bf627fd7";
+class OpenWeatherApiClient
+{
+    private const GEO_API_URL = 'http://api.openweathermap.org/geo/1.0/direct';
+    private const CURRENT_API_URL = 'https://api.openweathermap.org/data/2.5/weather';
+    private const FORECAST_API_URL = 'https://api.openweathermap.org/data/2.5/forecast';
+    private const DEFAULT_COUNTRY = 'ES';
+    private const DEFAULT_LIMIT = 1;
+    private const HOURLY_FORECAST_BLOCKS = 8;
+    private const WEEKLY_FORECAST_DAYS = 7;
 
-$url = "http://api.openweathermap.org/geo/1.0/direct?q=" . $city . "&limit=" . $limit . "&appid=" . $api_key;
+    private string $apiKey;
 
-echo "URL: " . $url . "\n<br>";
+    public function __construct(?string $apiKey = null)
+    {
+        $resolvedApiKey = $apiKey ?: getenv('OPENWEATHER_API_KEY');
 
-// Request to API
-echo "Requesting data from API...\n<br>";
-$response = file_get_contents($url);
-echo "Response: " . $response . "\n<br>";
+        if (!is_string($resolvedApiKey) || trim($resolvedApiKey) === '') {
+            throw new RuntimeException('Falta la API key de OpenWeather. Define la variable de entorno OPENWEATHER_API_KEY.');
+        }
 
-// Parse JSON
-$data = json_decode($response, true);
+        $this->apiKey = trim($resolvedApiKey);
+    }
 
-$lat = $data[0]['lat'];
-$lon = $data[0]['lon'];
+    public function geocodeCity(string $city, string $country = self::DEFAULT_COUNTRY, int $limit = self::DEFAULT_LIMIT): array
+    {
+        $normalizedCity = trim($city);
+        if ($normalizedCity === '') {
+            throw new InvalidArgumentException('La ciudad no puede estar vacía.');
+        }
 
-echo "Latitude: " . $lat . "<br>";
-echo "Longitude: " . $lon . "<br>";
-// Display data
-echo "Data received from API:\n<br>";
-print_r($data);
+        if ($limit < 1) {
+            throw new InvalidArgumentException('El límite debe ser mayor o igual que 1.');
+        }
 
-// Example data received from API:
-// Array ( [0] => Array ( [name] => Merida [local_names] => Array ( [ur] => \u0645\u06cc\u0631\u06cc\u062f\u0627 [ar] => \u0645\u0627\u0631\u062f\u0629 [es] => M�rida [la] => Emerita Augusta [fa] => \u0645\u0631\u06cc\u062f\u0627 [el] => \u039c\u03ad\u03c1\u03b9\u03b4\u03b1 [ru] => \u041c\u0435\u0440\u0438\u0434\u0430 [lt] => Merida [en] => Merida [be] => \u041c\u0435\u0440\u044b\u0434\u0430 [ca] => M�rida ) [lat] => 38.9174665 [lon] => -6.3443977 [country] => ES [state] => Extremadura ) ) 
+        $query = $normalizedCity;
+        $normalizedCountry = trim($country);
+        if ($normalizedCountry !== '') {
+            $query .= ',' . $normalizedCountry;
+        }
 
-?>
+        $response = $this->requestJson(self::GEO_API_URL . '?' . http_build_query([
+            'q' => $query,
+            'limit' => $limit,
+            'appid' => $this->apiKey,
+        ]));
 
-<h1>Datos del tiempo actuales</h1>
+        if (!isset($response[0]) || !is_array($response[0])) {
+            throw new RuntimeException('No se encontró ninguna ubicación para la ciudad indicada.');
+        }
 
-<?php
-// Call weather data for this moment using lat and long:
-$url_prevision_actual = "https://api.openweathermap.org/data/2.5/weather?lat=" . $lat . "&lon=" . $lon . "&appid=" . $api_key . "&units=metric"; // Doesn't work, can I get from the other API call?
+        return $this->normalizeLocation($response[0]);
+    }
 
-echo "URL peticionada: " . $url_prevision_actual . "<br>";
+    public function fetchCurrentWeather(float $lat, float $lon): array
+    {
+        $response = $this->requestJson(self::CURRENT_API_URL . '?' . http_build_query([
+            'lat' => $lat,
+            'lon' => $lon,
+            'appid' => $this->apiKey,
+            'units' => 'metric',
+        ]));
 
-$response = file_get_contents($url_prevision_actual);
+        return $this->normalizeCurrentWeather($response);
+    }
 
-$data = json_decode($response, true);
+    public function fetchForecast(float $lat, float $lon): array
+    {
+        $response = $this->requestJson(self::FORECAST_API_URL . '?' . http_build_query([
+            'lat' => $lat,
+            'lon' => $lon,
+            'appid' => $this->apiKey,
+            'units' => 'metric',
+        ]));
 
-echo "Datos decodificados:<br>";
-print_r($data);
+        if (!isset($response['list']) || !is_array($response['list']) || $response['list'] === []) {
+            throw new RuntimeException('La respuesta de previsión no contiene datos de forecast válidos.');
+        }
 
-$temp = $data['main']['temp'];
-$description = $data['weather'][0]['description'];
+        $normalizedItems = array_map([$this, 'normalizeForecastItem'], $response['list']);
 
-echo "Temperatura: " . $temp . " °C<br>";
-echo "Atmósfera: " . $description . "<br>";
+        return [
+            'forecast' => $normalizedItems,
+            'next_24_hours' => $this->extractNext24Hours($normalizedItems),
+            'weekly' => $this->buildWeeklyForecast($response['list']),
+        ];
+    }
 
-echo "<br>";
-echo "<br>";
-echo "<br>";
+    private function requestJson(string $url): array
+    {
+        $context = stream_context_create([
+            'http' => [
+                'ignore_errors' => true,
+                'timeout' => 10,
+            ],
+        ]);
 
-?>
+        $response = @file_get_contents($url, false, $context);
 
-<h1>Datos del tiempo por horas en los próximos 4 días</h1>
+        if ($response === false) {
+            $error = error_get_last();
+            $detail = $error['message'] ?? 'Error de red desconocido.';
+            throw new RuntimeException('No se pudo completar la petición HTTP a OpenWeather: ' . $detail);
+        }
 
-<?php
+        $statusCode = $this->extractStatusCode($http_response_header ?? []);
+        if ($statusCode !== null && $statusCode >= 400) {
+            throw new RuntimeException('OpenWeather devolvió un error HTTP ' . $statusCode . '.');
+        }
 
-$url_prevision_semanal = "https://api.openweathermap.org/data/2.5/forecast?lat=" . $lat . "&lon=" . $lon . "&appid=" . $api_key . "&units=metric";
+        if (trim($response) === '') {
+            throw new RuntimeException('OpenWeather devolvió una respuesta vacía.');
+        }
 
-echo "URL peticionada: " . $url_prevision_semanal . "<br>";
+        $decodedResponse = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decodedResponse)) {
+            throw new RuntimeException('No se pudo decodificar el JSON de OpenWeather: ' . json_last_error_msg());
+        }
 
-$response = file_get_contents($url_prevision_semanal);
+        if (isset($decodedResponse['cod']) && (string) $decodedResponse['cod'] !== '200') {
+            $message = isset($decodedResponse['message']) ? (string) $decodedResponse['message'] : 'Respuesta de error sin detalle.';
+            throw new RuntimeException('OpenWeather respondió con error: ' . $message);
+        }
 
-$data = json_decode($response, true);
+        return $decodedResponse;
+    }
 
-echo "<h2>Today's hourly forecast</h2>";
+    private function normalizeLocation(array $location): array
+    {
+        foreach (['name', 'country', 'lat', 'lon'] as $requiredField) {
+            if (!array_key_exists($requiredField, $location)) {
+                throw new RuntimeException('La respuesta de geocodificación no contiene el campo obligatorio: ' . $requiredField);
+            }
+        }
 
-$count = 0;
+        return [
+            'city' => (string) $location['name'],
+            'country' => (string) $location['country'],
+            'state' => isset($location['state']) ? (string) $location['state'] : null,
+            'lat' => (float) $location['lat'],
+            'lon' => (float) $location['lon'],
+        ];
+    }
 
-foreach ($data['list'] as $entry) {
-    if ($count >= 8) break;
+    private function normalizeCurrentWeather(array $response): array
+    {
+        if (!isset($response['main']) || !is_array($response['main'])) {
+            throw new RuntimeException('La respuesta actual no contiene el bloque main.');
+        }
 
-    $time = date("H:i", strtotime($entry['dt_txt']));
-    $temp = $entry['main']['temp'];
-    $desc = $entry['weather'][0]['description'];
+        if (!isset($response['weather'][0]) || !is_array($response['weather'][0])) {
+            throw new RuntimeException('La respuesta actual no contiene información descriptiva del tiempo.');
+        }
 
-    echo "Hora: $time | Temp: $temp ºC | $desc<br>";
+        foreach (['temp', 'humidity', 'pressure'] as $requiredMainField) {
+            if (!array_key_exists($requiredMainField, $response['main'])) {
+                throw new RuntimeException('La respuesta actual no contiene el campo main.' . $requiredMainField);
+            }
+        }
 
-    $count++;
-}
+        if (!isset($response['dt'])) {
+            throw new RuntimeException('La respuesta actual no contiene la fecha de observación.');
+        }
 
-?>
+        return [
+            'temperature' => (float) $response['main']['temp'],
+            'description' => (string) ($response['weather'][0]['description'] ?? ''),
+            'icon' => (string) ($response['weather'][0]['icon'] ?? ''),
+            'humidity' => (int) $response['main']['humidity'],
+            'pressure' => (int) $response['main']['pressure'],
+            'wind_speed' => isset($response['wind']['speed']) ? (float) $response['wind']['speed'] : 0.0,
+            'observed_at' => gmdate('Y-m-d H:i:s', (int) $response['dt']),
+        ];
+    }
 
-<h1>Datos por días 7 días</h1>
+    private function normalizeForecastItem(array $entry): array
+    {
+        if (!isset($entry['dt'])) {
+            throw new RuntimeException('La previsión contiene un bloque sin timestamp.');
+        }
 
-<?php
-// Call weather data for next 7 days using lat and long:
-$url_prevision_semanal = "https://api.openweathermap.org/data/2.5/forecast?lat=" . $lat . "&lon=" . $lon . "&appid=" . $api_key . "&units=metric";
-echo "Weather URL: " . $url_prevision_semanal . "<br>";
+        if (!isset($entry['main']) || !is_array($entry['main']) || !array_key_exists('temp', $entry['main'])) {
+            throw new RuntimeException('La previsión contiene un bloque sin temperatura.');
+        }
 
-echo "Requesting weather data...<br>";
+        if (!isset($entry['weather'][0]) || !is_array($entry['weather'][0])) {
+            throw new RuntimeException('La previsión contiene un bloque sin descripción meteorológica.');
+        }
 
-$weather_response = file_get_contents($url_prevision_semanal);
+        return [
+            'forecast_at' => gmdate('Y-m-d H:i:s', (int) $entry['dt']),
+            'temperature' => (float) $entry['main']['temp'],
+            'description' => (string) ($entry['weather'][0]['description'] ?? ''),
+            'icon' => (string) ($entry['weather'][0]['icon'] ?? ''),
+        ];
+    }
 
-echo "Weather response: " . $weather_response . "<br>";
+    private function extractNext24Hours(array $forecastItems): array
+    {
+        return array_slice($forecastItems, 0, self::HOURLY_FORECAST_BLOCKS);
+    }
 
-$weather_data = json_decode($weather_response, true);
+    private function buildWeeklyForecast(array $forecastEntries): array
+    {
+        $groupedByDate = [];
 
-echo "Decoded weather data:<br>";
-print_r($weather_data);
+        foreach ($forecastEntries as $entry) {
+            if (!isset($entry['dt'])) {
+                throw new RuntimeException('La previsión contiene un bloque sin fecha para el resumen semanal.');
+            }
 
+            $forecastDate = gmdate('Y-m-d', (int) $entry['dt']);
+            $description = (string) ($entry['weather'][0]['description'] ?? '');
+            $icon = (string) ($entry['weather'][0]['icon'] ?? '');
+            $tempMin = isset($entry['main']['temp_min']) ? (float) $entry['main']['temp_min'] : (float) ($entry['main']['temp'] ?? 0);
+            $tempMax = isset($entry['main']['temp_max']) ? (float) $entry['main']['temp_max'] : (float) ($entry['main']['temp'] ?? 0);
+            $middayDiff = abs((((int) $entry['dt']) % 86400) - 43200);
+
+            if (!isset($groupedByDate[$forecastDate])) {
+                $groupedByDate[$forecastDate] = [
+                    'forecast_date' => $forecastDate,
+                    'temp_min' => $tempMin,
+                    'temp_max' => $tempMax,
+                    'description' => $description,
+                    'icon' => $icon,
+                    'best_diff' => $middayDiff,
+                ];
+
+                continue;
+            }
+
+            $groupedByDate[$forecastDate]['temp_min'] = min($groupedByDate[$forecastDate]['temp_min'], $tempMin);
+            $groupedByDate[$forecastDate]['temp_max'] = max($groupedByDate[$forecastDate]['temp_max'], $tempMax);
+
+            if ($middayDiff < $groupedByDate[$forecastDate]['best_diff']) {
+                $groupedByDate[$forecastDate]['description'] = $description;
+                $groupedByDate[$forecastDate]['icon'] = $icon;
+                $groupedByDate[$forecastDate]['best_diff'] = $middayDiff;
+            }
+        }
+
+        $weeklyForecast = [];
+        foreach (array_slice(array_values($groupedByDate), 0, self::WEEKLY_FORECAST_DAYS) as $day) {
+            $weeklyForecast[] = [
+                'forecast_date' => $day['forecast_date'],
+                'temp_min' => $day['temp_min'],
+                'temp_max' => $day['temp_max'],
+                'description' => $day['description'],
+                'icon' => $day['icon'],
+            ];
+        }
+
+        return $weeklyForecast;
+    }
+
+    private function extractStatusCode(array $headers): ?int
+    {
+        foreach ($headers as $header) {
+            if (preg_match('/HTTP\/\S+\s+(\d{3})/', $header, $matches) === 1) {
+                return (int) $matches[1];
+            }
+        }
+
+        return null;
+    }
 
 ?>

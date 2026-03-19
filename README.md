@@ -14,6 +14,7 @@ El código está organizado en las siguientes carpetas y ficheros:
 - `src/Controllers/`: Controladores de la aplicación.
 - `src/Models/`: Modelos de la aplicación.
 - `src/Views/`: Vistas de la aplicación.
+- `src/Views/view.php`: Vista principal de la aplicación. Es llamada por el controlador, pasándole el nombre de la vista a mostrar.
 - `src/Views/header.php`: Cabecera de la aplicación web, presente en todas las vistas.
 - `src/Views/footer.php`: Pie de página de la aplicación web, presente en todas las vistas.
 - `.env`: Variables de entorno.
