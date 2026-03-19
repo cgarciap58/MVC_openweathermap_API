@@ -15,10 +15,17 @@ class View {
         $data: parámetro, de tipo array indexado, que contiene los datos que serán utilizados en la vista. Si no 
         necesita datos $data será null.
     */
-    public static function show ($viewName, $data=null){
-        include_once ("header.php");
-        include ("$viewName.php");    
-        include_once ("footer.php");
+    public static function show ($viewName, $data = null){
+        $basePath = __DIR__;
+
+        if (!is_file($basePath . "/" . $viewName . ".php")) {
+            throw new RuntimeException("La vista " . $viewName . " no existe");
+        }
+
+        include_once ($basePath . "/header.php");
+        include ($basePath . "/" . $viewName . ".php");    
+        include_once ($basePath . "/footer.php");
+
     }
 }
 
