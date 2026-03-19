@@ -11,6 +11,7 @@ class OpenWeatherApiClient
     private const DEFAULT_LIMIT = 1;
     private const HOURLY_FORECAST_BLOCKS = 8;
     private const WEEKLY_FORECAST_DAYS = 7;
+    private const RESPONSE_LANGUAGE = 'es';
 
     private string $apiKey;
 
@@ -62,6 +63,7 @@ class OpenWeatherApiClient
             'lon' => $lon,
             'appid' => $this->apiKey,
             'units' => 'metric',
+            'lang' => self::RESPONSE_LANGUAGE,
         ]));
 
         return $this->normalizeCurrentWeather($response);
@@ -74,6 +76,8 @@ class OpenWeatherApiClient
             'lon' => $lon,
             'appid' => $this->apiKey,
             'units' => 'metric',
+            'lang' => self::RESPONSE_LANGUAGE,
+
         ]));
 
         if (!isset($response['list']) || !is_array($response['list']) || $response['list'] === []) {
