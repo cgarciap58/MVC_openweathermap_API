@@ -20,6 +20,7 @@ class DAOWeather {
         $this->apiKey = getenv('OPENWEATHER_API_KEY') ?: 'ac5d71bf15cc25c652db23b8bf627fd7';
     }
 
+    // Recibe una ciudad y devuelve su ubicación
     public function getLocationByCity(string $city): ?array {
         $normalizedCity = $this->normalizeCity($city);
         if ($normalizedCity === '') {
