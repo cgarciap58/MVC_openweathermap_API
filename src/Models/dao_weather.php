@@ -305,8 +305,8 @@ class DAOWeather {
         $forecast = $this->apiClient->fetchForecast($lat, $lon);
         
         return [
-            'hourly' => $forecast['hourly'],
-            'daily' => $forecast['daily'],
+            'hourly' => $forecast['next_24_hours'] ?? [],
+            'daily' => $forecast['weekly'] ?? [],
         ];
     }
 }

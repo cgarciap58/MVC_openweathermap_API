@@ -268,5 +268,5 @@ class OpenWeatherApiClient
 
         return null;
     }
-
+}
 ?>
