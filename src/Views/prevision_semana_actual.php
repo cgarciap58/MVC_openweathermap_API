@@ -3,6 +3,7 @@ $location = is_array($data['location'] ?? null) ? $data['location'] : [];
 $series = is_array($data['series'] ?? null) ? $data['series'] : [];
 $summary = is_array($data['summary'] ?? null) ? $data['summary'] : [];
 $lastUpdated = $data['last_updated'] ?? null;
+$chartPath = $data['chart_path'] ?? null;
 $locationName = trim(implode(', ', array_filter([
     $location['city'] ?? null,
     $location['state'] ?? null,
@@ -33,6 +34,18 @@ $locationName = trim(implode(', ', array_filter([
         </div>
     </div>
 </div>
+
+<?php if ($series !== [] && is_string($chartPath) && $chartPath !== ''): ?>
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <img
+                src="<?= htmlspecialchars($chartPath, ENT_QUOTES, 'UTF-8') ?>"
+                alt="Gráfica semanal de temperaturas mínimas y máximas"
+                class="img-fluid w-100 rounded"
+            >
+        </div>
+    </div>
+<?php endif; ?>
 
 <div class="row g-3">
     <?php if ($series === []): ?>

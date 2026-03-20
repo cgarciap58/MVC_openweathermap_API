@@ -6,6 +6,11 @@ final class ChartHelper
 {
     private const CACHE_DIRECTORY = __DIR__ . '/../cache/charts';
     private const PUBLIC_PREFIX = 'cache/charts';
+    private const PCHART_BOOTSTRAP_FILES = [
+        __DIR__ . '/pChart/class/pData.class.php',
+        __DIR__ . '/pChart/class/pDraw.class.php',
+        __DIR__ . '/pChart/class/pImage.class.php',
+    ];
 
     public static function render(array $config): ?string
     {
@@ -17,6 +22,7 @@ final class ChartHelper
 
         $filename = self::buildFilename($config);
         $absolutePath = self::CACHE_DIRECTORY . '/' . $filename;
+        self::cleanupExistingCharts((string) ($config['slug'] ?? 'chart'), $filename);
 
         if (!file_exists($absolutePath)) {
             if (self::canUsePChart()) {
@@ -38,12 +44,32 @@ final class ChartHelper
 
     private static function buildFilename(array $config): string
     {
-        return ($config['slug'] ?? 'chart') . '-' . sha1(json_encode($config, JSON_THROW_ON_ERROR)) . '.png';
+        return ($config['slug'] ?? 'chart') . '.png';
     }
 
     private static function canUsePChart(): bool
     {
+        self::bootstrapPChart();
         return class_exists('pData') && class_exists('pImage') && class_exists('pDraw');
+    }
+
+    private static function bootstrapPChart(): void
+    {
+        foreach (self::PCHART_BOOTSTRAP_FILES as $file) {
+            if (is_file($file)) {
+                require_once $file;
+            }
+        }
+    }
+
+    private static function cleanupExistingCharts(string $slug, string $currentFilename): void
+    {
+        $pattern = self::CACHE_DIRECTORY . '/' . $slug . '*.png';
+        foreach (glob($pattern) ?: [] as $existingChart) {
+            if (basename($existingChart) !== $currentFilename) {
+                @unlink($existingChart);
+            }
+        }
     }
 
     private static function renderWithPChart(array $config, string $absolutePath): void

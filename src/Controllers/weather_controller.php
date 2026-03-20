@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../Views/view.php';
 require_once __DIR__ . '/../Models/dao_weather.php';
+require_once __DIR__ . '/../Helpers/pChart.php';
 
 class WeatherController
 {
@@ -76,6 +77,7 @@ class WeatherController
                 break;
             case 'weekly':
                 $series = $daoWeather->getWeeklyForecastByCity($city);
+                $chartPayload = $this->buildWeeklyChartPayload($series);
                 $summary = [
                     'label' => 'Próximos 7 días',
                     'count' => count($series),
@@ -105,8 +107,69 @@ class WeatherController
             'series' => $series,
             'summary' => $summary,
             'last_updated' => $lastUpdated,
+            'chart_path' => $type === 'weekly' ? $this->renderWeeklyChart($location, $chartPayload ?? null) : null,
         ];
     }
+
+    private function buildWeeklyChartPayload(array $series): array
+    {
+        $labels = [];
+        $tempMin = [];
+        $tempMax = [];
+
+        foreach ($series as $entry) {
+            if (!isset($entry['forecast_date'], $entry['temp_min'], $entry['temp_max'])) {
+                continue;
+            }
+
+            $labels[] = (string) $entry['forecast_date'];
+            $tempMin[] = (float) $entry['temp_min'];
+            $tempMax[] = (float) $entry['temp_max'];
+        }
+
+        return [
+            'labels' => $labels,
+            'temp_min' => $tempMin,
+            'temp_max' => $tempMax,
+        ];
+    }
+
+    private function renderWeeklyChart(array $location, ?array $chartPayload): ?string
+    {
+        if ($chartPayload === null || ($chartPayload['labels'] ?? []) === []) {
+            return null;
+        }
+
+        $citySlug = $this->slugify((string) ($location['city'] ?? 'ciudad'));
+        $countrySlug = $this->slugify((string) ($location['country_code'] ?? $location['country'] ?? ''));
+
+        return ChartHelper::render([
+            'slug' => trim('weekly-' . $citySlug . '-' . $countrySlug, '-'),
+            'title' => 'Temperaturas semanales',
+            'type' => 'line',
+            'dataset' => [
+                'labels' => $chartPayload['labels'],
+                'series' => [
+                    [
+                        'label' => 'Temp. mínima',
+                        'values' => $chartPayload['temp_min'],
+                    ],
+                    [
+                        'label' => 'Temp. máxima',
+                        'values' => $chartPayload['temp_max'],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function slugify(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = preg_replace('/[^a-z0-9]+/', '-', $normalized) ?? '';
+        return trim($normalized, '-') ?: 'weather';
+    }
+
 
     private function resolveLastUpdated(array $series): ?string
     {

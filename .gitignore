@@ -1,3 +1,4 @@
 changes.patch
 .env
 labsuser.pem
+src/cache/*
