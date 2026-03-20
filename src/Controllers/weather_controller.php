@@ -34,8 +34,16 @@ class WeatherController
             return;
         }
 
+        // Si el usuario no escribe nada, devolvemos el formulario con un aviso ligado al campo.
         if ($city === '') {
-            $this->showSearchView('Debes indicar una ciudad para consultar el tiempo.', $type);
+            $this->showSearchView(null, $type, $city, 'Escribe el nombre de la ciudad.');
+            return;
+        }
+
+        // La ciudad solo puede contener letras y espacios para aceptar nombres compuestos.
+        if (!$this->isValidCityInput($city)) {
+            $this->showSearchView(null, $type, $city, 'La ciudad solo puede contener caracteres alfabéticos.');
+            return;
             return;
         }
 
@@ -83,6 +91,12 @@ class WeatherController
             'selected_type' => isset(self::VIEW_MAP[$selectedType]) ? $selectedType : self::DEFAULT_VIEW_TYPE,
             'city' => $city,
         ]);
+    }
+
+    private function isValidCityInput(string $city): bool
+    {
+        // Usamos \p{L} para aceptar letras Unicode, incluidas vocales acentuadas y la ñ.
+        return preg_match('/^[\p{L}\s]+$/u', $city) === 1;
     }
 
     private function buildViewData(DAOWeather $daoWeather, string $city, string $type): array

@@ -3,6 +3,7 @@ $title = isset($data['title']) ? (string) $data['title'] : 'Buscar ciudad';
 $error = isset($data['error']) ? (string) $data['error'] : null;
 $selectedType = isset($data['selected_type']) ? (string) $data['selected_type'] : 'current';
 $city = isset($data['city']) ? (string) $data['city'] : '';
+$cityError = isset($data['city_error']) ? (string) $data['city_error'] : null;
 $showWelcomeBackground = (bool) ($data['show_welcome_background'] ?? false);
 
 $sectionStyle = $showWelcomeBackground
@@ -34,13 +35,20 @@ $sectionStyle = $showWelcomeBackground
                         <label for="city" class="form-label">Ciudad</label>
                         <input
                             type="text"
-                            class="form-control"
+                            class="form-control<?= $cityError !== null && $cityError !== '' ? ' is-invalid' : '' ?>"
                             id="city"
                             name="city"
                             value="<?= htmlspecialchars($city, ENT_QUOTES, 'UTF-8') ?>"
                             placeholder="Ej. Mérida"
                             required
+                            aria-describedby="cityHelp cityError"
                         >
+                        <div id="cityHelp" class="form-text">Solo se permiten letras en el nombre de la ciudad.</div>
+                        <?php if ($cityError !== null && $cityError !== ''): ?>
+                            <div id="cityError" class="invalid-feedback d-block">
+                                <?= htmlspecialchars($cityError, ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div class="col-12">
                         <label for="view" class="form-label">Tipo de consulta</label>
