@@ -4,6 +4,7 @@ $series = is_array($data['series'] ?? null) ? $data['series'] : [];
 $summary = is_array($data['summary'] ?? null) ? $data['summary'] : [];
 $lastUpdated = $data['last_updated'] ?? null;
 $chartPath = $data['chart_path'] ?? null;
+$chartIsPlaceholder = (bool) ($data['chart_is_placeholder'] ?? false);
 $locationName = trim(implode(', ', array_filter([
     $location['city'] ?? null,
     $location['state'] ?? null,
@@ -35,9 +36,14 @@ $locationName = trim(implode(', ', array_filter([
     </div>
 </div>
 
-<?php if ($series !== [] && is_string($chartPath) && $chartPath !== ''): ?>
+<?php if (is_string($chartPath) && $chartPath !== ''): ?>
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
+            <?php if ($chartIsPlaceholder): ?>
+                <div class="alert alert-warning" role="alert">
+                    No había datos semanales disponibles para pintar la serie real, así que se muestra una gráfica de ejemplo de pChart con valores placeholder.
+                </div>
+            <?php endif; ?>
             <img
                 src="<?= htmlspecialchars($chartPath, ENT_QUOTES, 'UTF-8') ?>"
                 alt="Gráfica semanal de temperaturas mínimas y máximas"

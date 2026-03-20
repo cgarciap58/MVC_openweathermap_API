@@ -67,6 +67,11 @@ class WeatherController
             throw new RuntimeException('No se ha encontrado la ciudad indicada.');
         }
 
+        $chartPayload = null;
+        $usingPlaceholderChart = false;
+
+
+
         switch ($type) {
             case '24h':
                 $series = $daoWeather->getNext24HoursByCity($city);
@@ -78,6 +83,7 @@ class WeatherController
             case 'weekly':
                 $series = $daoWeather->getWeeklyForecastByCity($city);
                 $chartPayload = $this->buildWeeklyChartPayload($series);
+                $usingPlaceholderChart = $chartPayload['is_placeholder'] ?? false;
                 $summary = [
                     'label' => 'Próximos 7 días',
                     'count' => count($series),
@@ -107,7 +113,8 @@ class WeatherController
             'series' => $series,
             'summary' => $summary,
             'last_updated' => $lastUpdated,
-            'chart_path' => $type === 'weekly' ? $this->renderWeeklyChart($location, $chartPayload ?? null) : null,
+            'chart_path' => $type === 'weekly' ? $this->renderWeeklyChart($location, $chartPayload) : null,
+            'chart_is_placeholder' => $usingPlaceholderChart,
         ];
     }
 
@@ -127,10 +134,21 @@ class WeatherController
             $tempMax[] = (float) $entry['temp_max'];
         }
 
+        if ($labels === [] || $tempMin === [] || $tempMax === []) {
+            return [
+                'labels' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                'temp_min' => [9.0, 10.0, 8.0, 11.0, 12.0, 10.0, 9.0],
+                'temp_max' => [16.0, 17.0, 15.0, 18.0, 20.0, 19.0, 17.0],
+                'is_placeholder' => true,
+            ];
+        }
+
+
         return [
             'labels' => $labels,
             'temp_min' => $tempMin,
             'temp_max' => $tempMax,
+            'is_placeholder' => false,
         ];
     }
 
@@ -142,10 +160,11 @@ class WeatherController
 
         $citySlug = $this->slugify((string) ($location['city'] ?? 'ciudad'));
         $countrySlug = $this->slugify((string) ($location['country_code'] ?? $location['country'] ?? ''));
+        $isPlaceholder = (bool) ($chartPayload['is_placeholder'] ?? false);
 
         return ChartHelper::render([
-            'slug' => trim('weekly-' . $citySlug . '-' . $countrySlug, '-'),
-            'title' => 'Temperaturas semanales',
+            'slug' => trim('weekly-' . $citySlug . '-' . $countrySlug . ($isPlaceholder ? '-example' : ''), '-'),
+            'title' => $isPlaceholder ? 'Ejemplo de temperaturas semanales (placeholder)' : 'Temperaturas semanales',
             'type' => 'line',
             'dataset' => [
                 'labels' => $chartPayload['labels'],
