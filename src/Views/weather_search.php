@@ -11,17 +11,17 @@ $sectionStyle = $showWelcomeBackground
     : '';
 ?>
 
-<section class="row justify-content-center"<?= $sectionStyle !== '' ? ' style="' . htmlspecialchars($sectionStyle, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+<section class="row justify-content-center align-items-center h-100">
 <div class="col-lg-8">
         <?php
         $cardStyle = $showWelcomeBackground
-        ? "background-color: rgba(255, 255, 255, 0.88); backdrop-filter: blur(2px); min-height: 28rem;"
-        : '';
+            ? "background-color: rgba(255, 255, 255, 0.88); backdrop-filter: blur(2px); min-height: 28rem;"
+            : '';
         ?>
         <div class="card shadow-sm border-0 overflow-hidden"<?= $cardStyle !== '' ? ' style="' . htmlspecialchars($cardStyle, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>        
             <div class="card-body p-4">
                 <h1 class="h3 mb-3"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
-                <p class="text-muted">Consulta el tiempo actual, la previsión de las próximas 24 horas o el resumen semanal.</p>
+                <p class="text-muted">Consulta el tiempo actual, la previsión de las próximas 24 horas o los próximos días.</p>
 
                 <?php if ($error !== null && $error !== ''): ?>
                     <div class="alert alert-danger" role="alert">
@@ -38,7 +38,7 @@ $sectionStyle = $showWelcomeBackground
                             id="city"
                             name="city"
                             value="<?= htmlspecialchars($city, ENT_QUOTES, 'UTF-8') ?>"
-                            placeholder="Ej. Madrid"
+                            placeholder="Ej. Mérida"
                             required
                         >
                     </div>
@@ -49,7 +49,7 @@ $sectionStyle = $showWelcomeBackground
                             $options = [
                                 'current' => 'Tiempo actual',
                                 '24h' => 'Próximas 24 horas',
-                                'weekly' => 'Resumen semanal',
+                                'weekly' => 'Próximos días',
                             ];
                             foreach ($options as $value => $label):
                             ?>
