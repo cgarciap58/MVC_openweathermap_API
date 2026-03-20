@@ -30,7 +30,7 @@ $sectionStyle = $showWelcomeBackground
                     </div>
                 <?php endif; ?>
 
-                <form action="index.php" method="get" class="row g-3">
+                <form action="index.php" method="post" class="row g-3">
                     <div class="col-12">
                         <label for="city" class="form-label">Ciudad</label>
                         <input

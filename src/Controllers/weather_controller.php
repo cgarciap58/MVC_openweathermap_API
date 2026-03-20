@@ -44,7 +44,6 @@ class WeatherController
         if (!$this->isValidCityInput($city)) {
             $this->showSearchView(null, $type, $city, 'La ciudad solo puede contener caracteres alfabéticos.');
             return;
-            return;
         }
 
         if (!isset(self::VIEW_MAP[$type])) {
@@ -81,7 +80,7 @@ class WeatherController
         View::show('history', $payload);
     }
 
-    private function showSearchView(?string $error = null, string $selectedType = self::DEFAULT_VIEW_TYPE, string $city = ''): void
+    private function showSearchView(?string $error = null, string $selectedType = self::DEFAULT_VIEW_TYPE, string $city = '', ?string $cityError = null): void
     {
         View::show('weather_search', [
             'title' => 'Buscar ciudad',
@@ -90,6 +89,8 @@ class WeatherController
             'is_history_view' => false,
             'selected_type' => isset(self::VIEW_MAP[$selectedType]) ? $selectedType : self::DEFAULT_VIEW_TYPE,
             'city' => $city,
+            'city_error' => $cityError,
+            'show_welcome_background' => true,
         ]);
     }
 
