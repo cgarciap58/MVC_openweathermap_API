@@ -3,14 +3,20 @@ $title = isset($data['title']) ? (string) $data['title'] : 'Buscar ciudad';
 $error = isset($data['error']) ? (string) $data['error'] : null;
 $selectedType = isset($data['selected_type']) ? (string) $data['selected_type'] : 'current';
 $city = isset($data['city']) ? (string) $data['city'] : '';
+$showWelcomeBackground = (bool) ($data['show_welcome_background'] ?? false);
+
+$sectionStyle = $showWelcomeBackground
+    ? "background-image: linear-gradient(rgba(248, 249, 250, 0.35), rgba(248, 249, 250, 0.35)), url('static/merida.jpg');"
+        . " background-size: cover; background-position: center; border-radius: 1rem; padding: 3rem 1rem;"
+    : '';
 ?>
-<section class="row justify-content-center">
-    <div class="col-lg-8">
+
+<section class="row justify-content-center"<?= $sectionStyle !== '' ? ' style="' . htmlspecialchars($sectionStyle, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
+<div class="col-lg-8">
         <?php
         $cardStyle = $showWelcomeBackground
-            ? "background-image: linear-gradient(rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.82)), url('static/merida.jpg');"
-                . " background-size: cover; background-position: center; min-height: 28rem;"
-            : '';
+        ? "background-color: rgba(255, 255, 255, 0.88); backdrop-filter: blur(2px); min-height: 28rem;"
+        : '';
         ?>
         <div class="card shadow-sm border-0 overflow-hidden"<?= $cardStyle !== '' ? ' style="' . htmlspecialchars($cardStyle, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>        
             <div class="card-body p-4">
