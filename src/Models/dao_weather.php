@@ -7,6 +7,7 @@ class DAOWeather {
     private const CURRENT_TTL_MINUTES = 15;
     private const HOURLY_TTL_MINUTES = 60;
     private const WEEKLY_TTL_MINUTES = 360;
+    private const SEARCH_HISTORY_LIMIT = 20;
 
     private $con;
     private OpenWeatherApiClient $apiClient;
@@ -78,6 +79,39 @@ class DAOWeather {
         return $this->saveWeeklyForecast((int) $location['id'], $forecastData['daily']);
     }
 
+    public function registerSearchHistory(string $cityQuery, string $viewType, array $location): void {
+        $normalizedCityQuery = trim($cityQuery);
+        $resolvedCity = $this->buildResolvedCityLabel($location);
+
+        if ($normalizedCityQuery === '' || $resolvedCity === '') {
+            return;
+        }
+
+        $sql = 'INSERT INTO weather_search_history (city_query, view_type, resolved_city, searched_at)
+                VALUES (:city_query, :view_type, :resolved_city, UTC_TIMESTAMP())';
+
+        $stmt = $this->con->prepare($sql);
+        $stmt->execute([
+            'city_query' => $normalizedCityQuery,
+            'view_type' => $viewType,
+            'resolved_city' => $resolvedCity,
+        ]);
+    }
+
+    public function getRecentSearchHistory(int $limit = self::SEARCH_HISTORY_LIMIT): array {
+        $safeLimit = $limit > 0 ? min($limit, self::SEARCH_HISTORY_LIMIT) : self::SEARCH_HISTORY_LIMIT;
+        $sql = sprintf(
+            'SELECT id, city_query, view_type, resolved_city, searched_at
+             FROM weather_search_history
+             ORDER BY searched_at DESC, id DESC
+             LIMIT %d',
+            $safeLimit
+        );
+
+        $stmt = $this->con->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     private function requireLocation(string $city): array {
         $location = $this->getLocationByCity($city);
 
@@ -139,6 +173,16 @@ class DAOWeather {
         ]);
 
         return strtolower($normalizedValue);
+    }
+
+    private function buildResolvedCityLabel(array $location): string {
+        $parts = array_filter([
+            $location['city'] ?? null,
+            $location['state'] ?? null,
+            $location['country_code'] ?? $location['country'] ?? null,
+        ], static fn ($value): bool => is_string($value) && trim($value) !== '');
+
+        return implode(', ', $parts);
     }
 
     private function findLocationByNormalizedQuery(string $normalizedCity): ?array {

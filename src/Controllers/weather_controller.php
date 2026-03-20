@@ -18,6 +18,11 @@ class WeatherController
 
     public function handleRequest(array $request): void
     {
+        if (($request['action'] ?? '') === 'history') {
+            $this->showHistoryView();
+            return;
+        }
+
         $city = trim((string) ($request['city'] ?? ''));
         $type = trim((string) ($request['view'] ?? $request['type'] ?? self::DEFAULT_VIEW_TYPE));
         $hasSubmittedForm = array_key_exists('city', $request) || array_key_exists('view', $request) || array_key_exists('type', $request);
@@ -42,9 +47,29 @@ class WeatherController
         try {
             $daoWeather = new DAOWeather();
             $payload = $this->buildViewData($daoWeather, $city, $type);
+            $daoWeather->registerSearchHistory($city, $type, $payload['location']);
             View::show(self::VIEW_MAP[$type], $payload);
         } catch (Throwable $exception) {
             $this->showSearchView($exception->getMessage(), $type, $city);
+        }
+    }
+
+    public function showHistoryView(): void
+    {
+        try {
+            $daoWeather = new DAOWeather();
+            $history = $daoWeather->getRecentSearchHistory();
+
+            View::show('historial_consultas', [
+                'title' => 'Historial de consultas',
+                'history' => $history,
+            ]);
+        } catch (Throwable $exception) {
+            View::show('historial_consultas', [
+                'title' => 'Historial de consultas',
+                'history' => [],
+                'error' => $exception->getMessage(),
+            ]);
         }
     }
 
@@ -69,8 +94,6 @@ class WeatherController
 
         $chartPayload = null;
         $usingPlaceholderChart = false;
-
-
 
         switch ($type) {
             case '24h':
@@ -143,7 +166,6 @@ class WeatherController
             ];
         }
 
-
         return [
             'labels' => $labels,
             'temp_min' => $tempMin,
@@ -188,7 +210,6 @@ class WeatherController
         $normalized = preg_replace('/[^a-z0-9]+/', '-', $normalized) ?? '';
         return trim($normalized, '-') ?: 'weather';
     }
-
 
     private function resolveLastUpdated(array $series): ?string
     {

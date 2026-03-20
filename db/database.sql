@@ -73,3 +73,14 @@ CREATE TABLE weather_daily (
     FOREIGN KEY (location_id) REFERENCES weather_locations (id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE weather_search_history (
+  id int(11) NOT NULL AUTO_INCREMENT,
+  city_query varchar(150) NOT NULL,
+  view_type varchar(20) NOT NULL,
+  resolved_city varchar(200) NOT NULL,
+  searched_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_weather_search_history_searched_at (searched_at),
+  KEY idx_weather_search_history_view_type (view_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
