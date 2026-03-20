@@ -6,7 +6,13 @@ $city = isset($data['city']) ? (string) $data['city'] : '';
 ?>
 <section class="row justify-content-center">
     <div class="col-lg-8">
-        <div class="card shadow-sm border-0">
+        <?php
+        $cardStyle = $showWelcomeBackground
+            ? "background-image: linear-gradient(rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.82)), url('static/merida.jpg');"
+                . " background-size: cover; background-position: center; min-height: 28rem;"
+            : '';
+        ?>
+        <div class="card shadow-sm border-0 overflow-hidden"<?= $cardStyle !== '' ? ' style="' . htmlspecialchars($cardStyle, ENT_QUOTES, 'UTF-8') . '"' : '' ?>>        
             <div class="card-body p-4">
                 <h1 class="h3 mb-3"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
                 <p class="text-muted">Consulta el tiempo actual, la previsión de las próximas 24 horas o el resumen semanal.</p>

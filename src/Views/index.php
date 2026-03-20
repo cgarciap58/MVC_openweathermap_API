@@ -19,4 +19,5 @@ View::show('weather_search', [
     'is_history_view' => false,
     'selected_type' => 'current',
     'city' => '',
+    'show_welcome_background' => true,
 ]);
