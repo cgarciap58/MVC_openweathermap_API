@@ -74,7 +74,6 @@ class DAOWeather {
             return $cachedForecast;
         }
 
-        $forecastData = $this->fetchForecastFromApi($location['lat'], $location['lon']);
         $forecastData = $this->fetchForecastFromApi((float) $location['lat'], (float) $location['lon']);
         return $this->saveWeeklyForecast((int) $location['id'], $forecastData['daily']);
     }

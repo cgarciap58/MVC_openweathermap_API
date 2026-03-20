@@ -27,12 +27,13 @@ final class ChartHelper
         if (!file_exists($absolutePath)) {
             if (self::canUsePChart()) {
                 self::renderWithPChart($config, $absolutePath);
-            } else {
+            } elseif (self::canUseGd()) {
                 self::renderWithGdFallback($config, $absolutePath);
+            } else {
+                return null;
             }
         }
-
-        return self::PUBLIC_PREFIX . '/' . $filename;
+        return is_file($absolutePath) ? self::PUBLIC_PREFIX . '/' . $filename : null;
     }
 
     private static function ensureCacheDirectory(): void
@@ -52,6 +53,16 @@ final class ChartHelper
         self::bootstrapPChart();
         return class_exists('pData') && class_exists('pImage') && class_exists('pDraw');
     }
+
+    private static function canUseGd(): bool
+    {
+        return function_exists('imagecreatetruecolor')
+            && function_exists('imagecolorallocate')
+            && function_exists('imagefill')
+            && function_exists('imagepng')
+            && function_exists('imagedestroy');
+    }
+
 
     private static function bootstrapPChart(): void
     {

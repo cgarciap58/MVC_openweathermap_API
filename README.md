@@ -2,6 +2,12 @@
 
 Esta aplicación está desarrollada con el patrón MVC y utiliza Docker para su despliegue. En lenguaje de programación PHP.
 
+## Índice
+
+1. [Estructura del proyecto](#estructura-del-proyecto)
+2. [Despliegue](#despliegue)
+3. [Gráfica](#gráfica)
+4. [Otros detalles sobre el código](#otros-detalles-sobre-el-código)
 
 ## Estructura del proyecto
 
@@ -23,4 +29,12 @@ El código está organizado en las siguientes carpetas y ficheros:
 ## Despliegue
 
 El despliegue se realizará mediante clonado de este mismo repositorio en una instancia EC2 de AWS.
-Dicha instancia se asociará a un dominio público mediante el servicio gratuito de noip. 
+Dicha instancia se asociará a un dominio público mediante el servicio gratuito de noip.
+
+## Gráfica
+
+La gráfica se genera mediante la librería pChart y se guarda en la carpeta `src/Charts/`.
+
+## Otros detalles sobre el código
+
+Openweather no distribuye una API (gratuita) para la consulta de la previsión por horas del día actual, con lo cual se ha optado por hacer la llamada a la API de la previsión semanal, y mostrar los datos de las primeras 24 horas dentro de los datos que proporciona esa API.
