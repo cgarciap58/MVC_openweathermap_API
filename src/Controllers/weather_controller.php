@@ -9,6 +9,7 @@ require_once __DIR__ . '/../Helpers/pChart.php';
 class WeatherController
 {
     private const DEFAULT_VIEW_TYPE = 'current';
+    private const APP_NAME = 'App Meteo César';
 
     private const VIEW_MAP = [
         'current' => 'prevision_actual',
@@ -43,7 +44,6 @@ class WeatherController
             return;
         }
 
-
         try {
             $daoWeather = new DAOWeather();
             $payload = $this->buildViewData($daoWeather, $city, $type);
@@ -56,28 +56,30 @@ class WeatherController
 
     public function showHistoryView(): void
     {
+        $payload = [
+            'title' => 'Historial de consultas',
+            'browser_title' => $this->buildBrowserTitle('Historial de consultas'),
+            'is_history_view' => true,
+            'history' => [],
+        ];
+
         try {
             $daoWeather = new DAOWeather();
-            $history = $daoWeather->getRecentSearchHistory();
-
-            View::show('historial_consultas', [
-                'title' => 'Historial de consultas',
-                'history' => $history,
-            ]);
+            $payload['history'] = $daoWeather->getRecentSearchHistory();
         } catch (Throwable $exception) {
-            View::show('historial_consultas', [
-                'title' => 'Historial de consultas',
-                'history' => [],
-                'error' => $exception->getMessage(),
-            ]);
+            $payload['error'] = $exception->getMessage();
         }
+
+        View::show('history', $payload);
     }
 
     private function showSearchView(?string $error = null, string $selectedType = self::DEFAULT_VIEW_TYPE, string $city = ''): void
     {
         View::show('weather_search', [
             'title' => 'Buscar ciudad',
+            'browser_title' => $this->buildBrowserTitle('Buscar ciudad'),            
             'error' => $error,
+            'is_history_view' => false,
             'selected_type' => isset(self::VIEW_MAP[$selectedType]) ? $selectedType : self::DEFAULT_VIEW_TYPE,
             'city' => $city,
         ]);
@@ -102,6 +104,7 @@ class WeatherController
                     'label' => 'Próximas 24 horas',
                     'count' => count($series),
                 ];
+                $pageTitle = 'Previsión próximas 24 horas en ' . $location['city'];
                 break;
             case 'weekly':
                 $series = $daoWeather->getWeeklyForecastByCity($city);
@@ -111,6 +114,7 @@ class WeatherController
                     'label' => 'Próximos 7 días',
                     'count' => count($series),
                 ];
+                $pageTitle = 'Resumen semanal en ' . $location['city'];
                 break;
             case 'current':
             default:
@@ -123,13 +127,16 @@ class WeatherController
                     'pressure' => $current['pressure'] ?? null,
                     'wind_speed' => $current['wind_speed'] ?? null,
                 ];
+                $pageTitle = 'Tiempo actual en ' . $location['city'];
                 break;
         }
 
         $lastUpdated = $this->resolveLastUpdated($series);
 
         return [
-            'title' => 'Tiempo en ' . $location['city'],
+            'title' => $pageTitle,
+            'browser_title' => $this->buildBrowserTitle($pageTitle),
+            'is_history_view' => false,
             'type' => $type,
             'city' => $city,
             'location' => $location,
@@ -202,6 +209,11 @@ class WeatherController
                 ],
             ],
         ]);
+    }
+
+    private function buildBrowserTitle(string $pageTitle): string
+    {
+        return $pageTitle . ' | ' . self::APP_NAME;
     }
 
     private function slugify(string $value): string

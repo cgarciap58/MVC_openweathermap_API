@@ -15,6 +15,8 @@ if ($hasHistoryRequest || $hasQuery) {
 
 View::show('weather_search', [
     'title' => 'Buscar ciudad',
+    'browser_title' => 'Buscar ciudad | App Meteo César',
+    'is_history_view' => false,
     'selected_type' => 'current',
     'city' => '',
 ]);

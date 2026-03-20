@@ -109,6 +109,11 @@ class DAOWeather {
         );
 
         $stmt = $this->con->query($sql);
+        if ($stmt === false) {
+            $errorInfo = $this->con->errorInfo();
+            throw new RuntimeException('No se pudo recuperar el historial de consultas: ' . ($errorInfo[2] ?? 'error desconocido.'));
+        }
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
