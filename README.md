@@ -2,6 +2,8 @@
 
 Esta aplicación está desarrollada con el patrón MVC y utiliza Docker para su despliegue. En lenguaje de programación PHP.
 
+La página está levantada en https://cesaropenweather.ddns.net una vez está levantada la instancia en AWS.
+
 ## Índice
 
 1. [Estructura del proyecto](#estructura-del-proyecto)
